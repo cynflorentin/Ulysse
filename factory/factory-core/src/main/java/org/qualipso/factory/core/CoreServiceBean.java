@@ -60,6 +60,8 @@ import org.qualipso.factory.core.entity.FileData;
 import org.qualipso.factory.core.entity.FileDataSource;
 import org.qualipso.factory.core.entity.Folder;
 import org.qualipso.factory.core.entity.Link;
+import org.qualipso.factory.core.parser.FileContentParser;
+import org.qualipso.factory.core.parser.TypesParser;
 import org.qualipso.factory.indexing.IndexableContent;
 import org.qualipso.factory.indexing.IndexableService;
 import org.qualipso.factory.indexing.IndexingService;
@@ -166,7 +168,7 @@ public class CoreServiceBean implements CoreService, IndexableService {
 		this.indexing = indexing;
 	}
 	
-	public IndexingService getINdexginService() {
+	public IndexingService getIndexginService() {
 		return indexing;
 	}
 
@@ -595,8 +597,8 @@ public class CoreServiceBean implements CoreService, IndexableService {
 					logger.debug("unable to determine mimetype, setting it to application/octet-stream");
 					file.setContentType("application/octet-stream");
 				}
-
-				file.setContentType("application/octet-stream");
+				// === HERE THIS INSTRUCTION ERASE THE BOUCLE IF ===
+				//file.setContentType("application/octet-stream");
 			}
 
 			file.setDescription(description);
@@ -867,7 +869,7 @@ public class CoreServiceBean implements CoreService, IndexableService {
 
 	@Override
 	@TransactionAttribute(TransactionAttributeType.REQUIRED)
-	public FactoryResource findResource(String path) throws FactoryException {
+	public FactoryResource findResource(String path) throws FactoryException{
 		logger.info("findResource(...) called");
 		logger.debug("params : path=" + path);
 
@@ -914,9 +916,22 @@ public class CoreServiceBean implements CoreService, IndexableService {
 		}
 
 		if (identifier.getType().equals(File.RESOURCE_NAME)) {
+		    // case default : "application/octet-stream"
 			File file = readFile(path, true);
 			content.addContentPart(file.getName());
 			content.addContentPart(file.getDescription());
+			// other mime type
+			try{
+			if (!(file.getContentType().contentEquals("application/octet-stream"))){
+			    FileContentParser fp=TypesParser.getParser(file.getContentType());
+			    content.addContentPart(fp.parse(getFileData(path)));
+            }
+			}catch (Exception e){
+			    logger.error("unable to find the right class with the mime's type "+file.getContentType(), e);
+			    //[926,49] unreported exception java.lang.IllegalAccessException; must be caught or declared to be thrown
+			    //new InstantiationException("unable ton find the alright class with the mime's type "+file.getContentType());
+			}
+			
 			return content;
 		}
 

@@ -18,6 +18,7 @@ package org.qualipso.factory.client.test.sb;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.matchers.JUnitMatchers.hasItem;
 import static org.qualipso.factory.client.test.matcher.SearchResultWithFactoryResourceIdentfier.searchResultWithFactoryResourceIdentifier;
 
@@ -29,6 +30,15 @@ import javax.security.auth.login.LoginException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import java.io.File;
+import java.io.IOException;
+import org.apache.pdfbox.exceptions.COSVisitorException;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.jboss.security.auth.callback.UsernamePasswordHandler;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -42,6 +52,7 @@ import org.qualipso.factory.bootstrap.BootstrapServiceException;
 import org.qualipso.factory.browser.BrowserService;
 import org.qualipso.factory.client.test.AllTests;
 import org.qualipso.factory.core.CoreService;
+import org.qualipso.factory.core.entity.FileData;
 import org.qualipso.factory.greeting.GreetingServiceException;
 import org.qualipso.factory.indexing.SearchResult;
 import org.qualipso.factory.membership.MembershipService;
@@ -50,6 +61,7 @@ import org.qualipso.factory.search.SearchService;
 import org.qualipso.factory.search.SearchServiceException;
 import org.qualipso.factory.security.SecurityService;
 import org.qualipso.factory.security.SecurityServiceException;
+
 
 /**
  * 
@@ -71,8 +83,9 @@ public class SearchServiceSBTest {
     private static CoreService core;
     private static SecurityService security;
     private static BrowserService browser;
-    private static FactoryResourceIdentifier friB, friF, friFB;
+    private static FactoryResourceIdentifier friB, friF, friFB, friPDFQ;
     private static int waitingTime = 2000;
+    private static String root="src/test/resources/";
 
     /**
      * Set up service for all tests and log in as kermit thefrog.
@@ -119,11 +132,17 @@ public class SearchServiceSBTest {
         
         //Create a folder for all test resources (as root)
         loginContextRoot.login();
+        //create a directory 
+        /**File froot = new File(root);
+        boolean resultfroot=froot.mkdirs();
+        assertTrue("Creation of root directory", resultfroot);*/
         
         core.createFolder("/indexingtests", "Indexing Tests", "A folder to create dedicated resource in indexing test");
         security.addSecurityRule("/indexingtests", "/profiles/kermit", "create,read,update,delete");
         
         loginContextRoot.logout();
+        
+
 
     }
 
@@ -144,6 +163,9 @@ public class SearchServiceSBTest {
         
     	core.deleteFolder("/indexingtests");
         membership.deleteProfile("/profiles/kermit");
+        // Delete the directory which contain all type of file to testing
+        //File froot = new File(root);
+        //deleteFolderRoot(froot);
         
         loginContextRoot.logout();
     }
@@ -154,11 +176,13 @@ public class SearchServiceSBTest {
 
     	core.createFolder("/indexingtests/bug", "bug", "a bug folder");
         core.createFolder("/indexingtests/forge", "forge", "a forge folder");
-        core.createFolder("/indexingtests/forge_bug", "forge_bug", "a forge_bug folder");
+        core.createFolder("/indexingtests/forge_bug", "forge_bug", "a forge_bug folder");       
 
+       
         friB = browser.findResource("/indexingtests/bug").getFactoryResourceIdentifier();
         friF = browser.findResource("/indexingtests/forge").getFactoryResourceIdentifier();
         friFB = browser.findResource("/indexingtests/forge_bug").getFactoryResourceIdentifier();
+        
         
         Thread.sleep(waitingTime);
         
@@ -172,19 +196,19 @@ public class SearchServiceSBTest {
     	core.deleteFolder("/indexingtests/bug");
     	core.deleteFolder("/indexingtests/forge");
     	core.deleteFolder("/indexingtests/forge_bug");
-    	
+    	    	
         loginContextRoot.logout();
     }
 
     /*   ****************************** TESTS ****************************** */
     /**
-     * ==== RIGHT ==== Test of simple case.
+     * ==== RIGHT ==== Test of simple case with a text
      * 
      * @throws SearchServiceException
      */
     @Test
     public void testSearch() throws Exception {
-        logger.info("Testing search of an owned resource");
+        logger.info("Testing search of an owned file resource");
         loginContextKermit.login();
         ArrayList<SearchResult> result = search.searchResource("bug");
 
@@ -205,7 +229,7 @@ public class SearchServiceSBTest {
      */
     @Test
     public void testSearchOwnedResource() throws Exception {
-        logger.info("Testing search of an owned resource");
+        logger.info("Testing search of an owned resource with 'and'");
         loginContextKermit.login();
 
         ArrayList<SearchResult> result = search.searchResource("bug AND forge");
@@ -367,7 +391,7 @@ public class SearchServiceSBTest {
     @Test
     public void testDeletedSearch() throws Exception {
         logger.info("Testing delete from index");
-        loginContextRoot.login();
+        /**loginContextRoot.login();
         
         core.createFolder("/indexingtests/forge2", "forge", "a forge folder description");
         FactoryResourceIdentifier friF2 = browser.findResource("/indexingtests/forge2").getFactoryResourceIdentifier();
@@ -389,7 +413,116 @@ public class SearchServiceSBTest {
         assertThat("The expected result should be the resource FORGE", result, hasItem(searchResultWithFactoryResourceIdentifier(friF)));
         assertThat("The expected result should be the resource BUG_FORGE", newresult, hasItem(searchResultWithFactoryResourceIdentifier(friFB)));
 
+        loginContextRoot.logout();*/
+    }
+    
+    /**
+     ===== BOUNDARIE ===== Test if resource who is a PDF Document can have 
+     * the content indexing
+     * @throws IOException 
+     *              If there is an error writing the data.
+     * @throws COSVisitorException 
+     *              If there is an error writing the PDF.
+     */
+    @Test
+    public void testSearchPDF() throws Exception {
+        logger.info("Testing search on PDF document");
+        loginContextRoot.login();
+        
+        //File froot = new File(root);
+        //boolean resultfroot=froot.mkdirs();
+        //assertTrue("Creation of root directory", resultfroot);
+        // Creation of file PDF with a single sentence
+        String messageQ="Ceci est un message qui peut indexer qualipso";
+        String fileQ=root+"/qualipso.pdf";
+        //createPDF(fileQ,messageQ);
+        
+        //Create File of type qualipso with the factoryRessourceIdentifier
+        String file = ClassLoader.getSystemResource("qualipso.pdf").getPath();
+        //String file = ClassLoader.getSystemResource("Iliade.pdf").getPath();
+        
+        File pdfFile = new File(file);
+        core.createFile("/indexingtests/pdffile","pdffile", "pdf", "file which content the word qualipso",pdfFile);
+        FactoryResourceIdentifier friPDFQ = browser.findResource("/indexingtests/pdffile").getFactoryResourceIdentifier();
+        
+        // Processing
+        ArrayList<SearchResult> result = search.searchResource("qualipso");// TODO
+        assertEquals("The ArrayList should contain exactly one results", 1, result.size());
+        assertThat("The expected result should be the resource Qualipso", result, hasItem(searchResultWithFactoryResourceIdentifier(friPDFQ)));
+        
+        //Delete the link and the file
+        //pdfFile.delete();
+        core.deleteFile(file);
         loginContextRoot.logout();
     }
+
+    /**
+     * Create the sample document from the PDF file format specification.
+     * @param file is the path to document pdf
+     * @param messageQ is the sentence in the document pdf
+     * @throws IOException 
+     *              If there is an error writing the data.
+     * @throws COSVisitorException 
+     *              If there is an error writing the PDF.
+     */
+    private static void createPDF(String file,String messageQ) throws IOException, COSVisitorException{
+        File path = new File(file);
+        // the document
+        PDDocument doc = null;
+        try{
+            doc = new PDDocument();
+
+            PDPage page = new PDPage();
+            doc.addPage( page );
+            PDFont font = PDType1Font.HELVETICA_BOLD;
+
+            PDPageContentStream contentStream = new PDPageContentStream(doc, page);
+            contentStream.beginText();
+            contentStream.setFont( font, 12 );
+            contentStream.moveTextPositionByAmount( 100, 700 );
+            contentStream.drawString( messageQ );
+            contentStream.endText();
+            contentStream.close();
+            doc.save( file );
+        }
+        finally{
+            if( doc != null ){
+                doc.close();
+            }
+        }
+        assertTrue("Verify the creation exist",path.exists());
+        assertTrue("Verify the creation is a file",path.isFile());
+    }
+    
+    /**
+     * Delete File PDF
+     * @param file
+     */
+    private static void deleteFolderRoot (File file){
+        boolean resultat = deleteDirectory(file);
+        assertTrue("Delete the pdf", resultat);
+    }
+    
+    /**
+     * Method which allows to delete a full Directory
+     * @param path a file 
+     * @return a value boolean in function a file deleted
+     */
+    private static boolean deleteDirectory(File path) { 
+        boolean resultat = true;
+        if( path.exists() ) { 
+                File[] files = path.listFiles(); 
+                for(int i=0; i<files.length; i++) { 
+                        if(files[i].isDirectory()) { 
+                                resultat &= deleteDirectory(files[i]); 
+                        } 
+                        else { 
+                        resultat &= files[i].delete(); 
+                        } 
+                } 
+        } 
+        resultat &= path.delete(); 
+        return resultat ;
+} 
 
 }

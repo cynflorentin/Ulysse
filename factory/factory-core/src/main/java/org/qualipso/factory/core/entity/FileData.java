@@ -17,6 +17,9 @@
  */
 package org.qualipso.factory.core.entity;
 
+import java.io.IOException;
+import java.io.InputStream;
+
 import org.qualipso.factory.FactoryNamingConvention;
 
 import javax.activation.DataHandler;
@@ -35,7 +38,9 @@ import javax.xml.bind.annotation.XmlType;
  * possibility to treat data flow not in memory.
  *
  * @author Jerome Blanchard (jayblanc@gmail.com)
- * @date 19 august 2009
+ * @author cynthia FLORENTIN
+ * @author Anthony CLAUDOT
+ * @date 31 december 2010
  */
 @XmlRootElement(name = "file-data")
 @XmlType(name = "file-data", namespace = FactoryNamingConvention.RESOURCE_NAMESPACE + "file-data", propOrder =  {
@@ -59,5 +64,14 @@ public class FileData {
 
     public void setData(DataHandler data) {
         this.data = data;
+    }
+    
+    /**
+     * Method which allows to transform a FileData to InputStream
+     * @return InputStream
+     * @throws IOException
+     */
+    public InputStream getInputStream() throws IOException {
+        return data.getInputStream();
     }
 }

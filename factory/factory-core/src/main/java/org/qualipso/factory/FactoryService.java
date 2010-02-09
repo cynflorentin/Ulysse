@@ -61,6 +61,7 @@ public interface FactoryService {
      * @throws InvalidPathException if the path is invalid
      * @throws PathNotFoundException if the path doesn't point to any resource
      * @throws FactoryException if the resource has not been found
+     * @throws Exception if the ressource has not the alright parser with the mime's type 
      */
     public abstract FactoryResource findResource(String path)
         throws FactoryException, AccessDeniedException, InvalidPathException, PathNotFoundException;
